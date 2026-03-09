@@ -150,4 +150,8 @@ embedded_instances {
   "\"\n"
   "}\n"
   ""
+  scale3 {
+    x: 7.0
+    y: 5.0
+  }
 }

@@ -12,9 +12,7 @@
 -- CONDITIONS OF ANY KIND, either express or implied. See the License for the
 -- specific language governing permissions and limitations under the License.
 
---
--- message constants
---
+-- 消息常量
 local MSG_CLEAR_COLOR =         hash("clear_color")
 local MSG_WINDOW_RESIZED =      hash("window_resized")
 local MSG_SET_VIEW_PROJ =       hash("set_view_projection")
@@ -27,9 +25,7 @@ local DEFAULT_NEAR = -1
 local DEFAULT_FAR =   1
 local DEFAULT_ZOOM =  1
 
---
--- projection that centers content with maintained aspect ratio and optional zoom
---
+-- 固定投影（保持宽高比，支持缩放）
 local function get_fixed_projection(camera, state)
     camera.zoom = camera.zoom or DEFAULT_ZOOM
     local projected_width = state.window_width / camera.zoom
@@ -40,32 +36,31 @@ local function get_fixed_projection(camera, state)
     local top = bottom + projected_height
     return vmath.matrix4_orthographic(left, right, bottom, top, camera.near, camera.far)
 end
---
--- projection that centers and fits content with maintained aspect ratio
---
+
+-- 自适应投影（保持宽高比，自动适配）
 local function get_fixed_fit_projection(camera, state)
     camera.zoom = math.min(state.window_width / state.width, state.window_height / state.height)
     return get_fixed_projection(camera, state)
 end
---
--- projection that stretches content
---
+
+-- 拉伸投影
 local function get_stretch_projection(camera, state)
     return vmath.matrix4_orthographic(0, state.width, 0, state.height, camera.near, camera.far)
 end
---
--- projection for gui
---
+
+-- GUI投影
 local function get_gui_projection(camera, state)
     return vmath.matrix4_orthographic(0, state.window_width, 0, state.window_height, camera.near, camera.far)
 end
 
+-- 更新清空颜色
 local function update_clear_color(state, color)
     if color then
         state.clear_buffers[graphics.BUFFER_TYPE_COLOR0_BIT] = color
     end
 end
 
+-- 更新相机投影
 local function update_camera(camera, state)
     if camera.projection_fn then
         camera.proj = camera.projection_fn(camera, state)
@@ -73,6 +68,7 @@ local function update_camera(camera, state)
     end
 end
 
+-- 更新渲染状态（处理窗口大小变化）
 local function update_state(state)
     state.window_width = render.get_window_width()
     state.window_height = render.get_window_height()
@@ -80,28 +76,36 @@ local function update_state(state)
     if not state.valid then
         return false
     end
-    -- Make sure state updated only once when resize window
+
+    -- 仅在窗口尺寸变化时更新
     if state.window_width == state.prev_window_width and state.window_height == state.prev_window_height then
         return true
     end
+
     state.prev_window_width = state.window_width
     state.prev_window_height = state.window_height
     state.width = render.get_width()
     state.height = render.get_height()
+
+    -- 更新所有相机
     for _, camera in pairs(state.cameras) do
         update_camera(camera, state)
     end
+
     return true
 end
 
+-- 初始化相机参数
 local function init_camera(camera, projection_fn, near, far, zoom)
     camera.view = vmath.matrix4()
     camera.near = near == nil and DEFAULT_NEAR or near
     camera.far = far == nil and DEFAULT_FAR or far
     camera.zoom = zoom == nil and DEFAULT_ZOOM or zoom
     camera.projection_fn = projection_fn
+    camera.camera = nil -- 初始化camera_component的camera字段
 end
 
+-- 创建渲染谓词
 local function create_predicates(...)
     local arg = {...}
     local predicates = {}
@@ -111,9 +115,12 @@ local function create_predicates(...)
     return predicates
 end
 
+-- 创建相机
 local function create_camera(state, name, is_main_camera)
-    local camera = {}
-    camera.options = {}
+    local camera = {
+        options = {},
+        camera = nil -- 初始化camera字段，避免nil引用
+    }
     state.cameras[name] = camera
     if is_main_camera then
         state.main_camera = camera
@@ -121,6 +128,7 @@ local function create_camera(state, name, is_main_camera)
     return camera
 end
 
+-- 创建渲染状态
 local function create_state()
     local state = {}
     local color = vmath.vector4(0, 0, 0, 0)
@@ -128,82 +136,79 @@ local function create_state()
     color.y = sys.get_config_number("render.clear_color_green", 0)
     color.z = sys.get_config_number("render.clear_color_blue", 0)
     color.w = sys.get_config_number("render.clear_color_alpha", 0)
+
     state.clear_buffers = {
         [graphics.BUFFER_TYPE_COLOR0_BIT] = color,
         [graphics.BUFFER_TYPE_DEPTH_BIT] = 1,
         [graphics.BUFFER_TYPE_STENCIL_BIT] = 0
     }
+
     state.cameras = {}
+    state.window_width = 0
+    state.window_height = 0
+    state.prev_window_width = 0
+    state.prev_window_height = 0
+    state.valid = false
+
     return state
 end
 
-local function set_camera_world(state)
-    local camera_components = camera.get_cameras()
+-- 更新渲染目标分辨率（修复窗口缩放问题）
+-- local function update_render_targets(self)
+--     local w = render.get_window_width()
+--     local h = render.get_window_height()
+-- 
+--     -- 更新主渲染目标
+--     local rt_params = { 
+--         format = render.FORMAT_RGBA, 
+--         width = w, 
+--         height = h, 
+--         min_filter = render.FILTER_LINEAR, 
+--         mag_filter = render.FILTER_LINEAR, 
+--         u_wrap = render.WRAP_CLAMP_TO_EDGE, 
+--         v_wrap = render.WRAP_CLAMP_TO_EDGE 
+--     }
+--     self.rt_main = render.render_target("rt_main", { [render.BUFFER_COLOR_BIT] = rt_params })
+-- 
+--     -- 更新Bloom渲染目标
+--     self.bloom_rts = {}
+--     self.bloom_sizes = {}
+--     local div = 2
+--     for i = 1, 4 do
+--         local bw = math.floor(w / div)
+--         local bh = math.floor(h / div)
+--         rt_params.width = bw
+--         rt_params.height = bh
+--         self.bloom_rts[i] = render.render_target("rt_bloom_"..i, { [render.BUFFER_COLOR_BIT] = rt_params })
+--         self.bloom_sizes[i] = { w = bw, h = bh }
+--         div = div * 2
+--     end
+-- end
 
-    -- This will set the last enabled camera from the stack of camera components
-    if #camera_components > 0 then
-        for i = #camera_components, 1, -1 do
-            if camera.get_enabled(camera_components[i]) then
-                local camera_component = state.cameras.camera_component
-                camera_component.camera = camera_components[i]
-                render.set_camera(camera_component.camera, { use_frustum = true })
-                -- The frustum will be overridden by the render.set_camera call,
-                -- so we don't need to return anything here other than an empty table.
-                return camera_component.options
-            end
-        end
-    end
-
-    -- If no active camera was found, we use the default main "camera world" camera
-    local camera_world = state.cameras.camera_world
-    render.set_view(camera_world.view)
-    render.set_projection(camera_world.proj)
-    return camera_world.options
-end
-
-local function reset_camera_world(state)
-    -- unbind the camera if a camera component is used
-    if state.cameras.camera_component.camera then
-        state.cameras.camera_component.camera = nil
-        render.set_camera()
-    end
-end
-
-function init(self)
-    self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text")
-
-    self.glow_pred = render.predicate({"glow_pass"}) 
-    -- default is stretch projection. copy from builtins and change for different projection
-    -- or send a message to the render script to change projection:
-    -- msg.post("@render:", "use_stretch_projection", { near = -1, far = 1 })
-    -- msg.post("@render:", "use_fixed_projection", { near = -1, far = 1, zoom = 2 })
-    -- msg.post("@render:", "use_fixed_fit_projection", { near = -1, far = 1 })
-
-    local state = create_state()
-    self.state = state
-
-    local camera_world = create_camera(state, "camera_world", true)
-    init_camera(camera_world, get_stretch_projection)
-    local camera_gui = create_camera(state, "camera_gui")
-    init_camera(camera_gui, get_gui_projection)
-    -- Create a special camera that wraps camera components (if they exist)
-    -- It will take precedence over any other camera, and not change from messages
-    local camera_component = create_camera(state, "camera_component")
-    update_state(state)
-
-    self.quad_pred = render.predicate({"fullscreen_quad"}) -- 你的全屏渲染实体Tag
-
+local function update_render_targets(self)
     local w = render.get_window_width()
     local h = render.get_window_height()
 
-    local rt_params = { format = render.FORMAT_RGBA, width = w, height = h, 
-    min_filter = render.FILTER_LINEAR, mag_filter = render.FILTER_LINEAR, 
-    u_wrap = render.WRAP_CLAMP_TO_EDGE, v_wrap = render.WRAP_CLAMP_TO_EDGE }
+    -- 删除旧的渲染目标
+    if self.rt_main then
+        render.delete_render_target(self.rt_main)
+    end
+    for _, rt in ipairs(self.bloom_rts or {}) do
+        render.delete_render_target(rt)
+    end
 
-    -- 主场景 RT
+    -- 创建新的渲染目标
+    local rt_params = {
+        format = render.FORMAT_RGBA,
+        width = w,
+        height = h,
+        min_filter = render.FILTER_LINEAR,
+        mag_filter = render.FILTER_LINEAR,
+        u_wrap = render.WRAP_CLAMP_TO_EDGE,
+        v_wrap = render.WRAP_CLAMP_TO_EDGE
+    }
     self.rt_main = render.render_target("rt_main", { [render.BUFFER_COLOR_BIT] = rt_params })
 
-    -- Bloom 降采样 RT 链表 (1/2, 1/4, 1/8, 1/16 分辨率)
     self.bloom_rts = {}
     self.bloom_sizes = {}
     local div = 2
@@ -216,142 +221,208 @@ function init(self)
         self.bloom_sizes[i] = { w = bw, h = bh }
         div = div * 2
     end
+end
 
-    -- 常量 Buffer 用于传参
+-- 设置相机世界
+local function set_camera_world(state)
+    local camera_components = camera.get_cameras()
+
+    -- 使用启用的相机组件
+    if #camera_components > 0 then
+        for i = #camera_components, 1, -1 do
+            if camera.get_enabled(camera_components[i]) then
+                local camera_component = state.cameras.camera_component
+                camera_component.camera = camera_components[i]
+                render.set_camera(camera_component.camera, { use_frustum = true })
+                return camera_component.options
+            end
+        end
+    end
+
+    -- 使用默认主相机
+    local camera_world = state.cameras.camera_world
+    render.set_view(camera_world.view)
+    render.set_projection(camera_world.proj)
+    return camera_world.options
+end
+
+-- 重置相机世界
+local function reset_camera_world(state)
+    local camera_component = state.cameras.camera_component
+    if camera_component and camera_component.camera then
+        camera_component.camera = nil
+        render.set_camera()
+    end
+end
+
+-- 初始化
+function init(self)
+    -- 创建渲染谓词
+    self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text")
+    self.glow_pred = render.predicate({"glow_pass"}) 
+    self.quad_pred = render.predicate({"fullscreen_quad"}) -- 全屏四边形谓词
+
+    -- 初始化状态
+    local state = create_state()
+    self.state = state
+
+    -- 创建相机
+    local camera_world = create_camera(state, "camera_world", true)
+    init_camera(camera_world, get_stretch_projection)
+
+    local camera_gui = create_camera(state, "camera_gui")
+    init_camera(camera_gui, get_gui_projection)
+
+    local camera_component = create_camera(state, "camera_component")
+    init_camera(camera_component, get_stretch_projection)
+
+    -- 更新状态和渲染目标
+    update_state(state)
+    update_render_targets(self)
+
+    -- 创建常量缓冲区
     self.constants = render.constant_buffer()
 end
 
+-- 主渲染逻辑
 function update(self)
     local state = self.state
     if not state.valid then
         if not update_state(state) then
             return
         end
+        -- 窗口大小变化时更新渲染目标
+        update_render_targets(self)
     end
 
     local predicates = self.predicates
 
-    -- 1. 渲染主场景到 self.rt_main
+    -- ========================
+    -- 1. 渲染主场景到RT
+    -- ========================
     render.enable_render_target(self.rt_main)
-    render.clear({[render.BUFFER_COLOR_BIT] = vmath.vector4(0, 0, 0, 1), [render.BUFFER_DEPTH_BIT] = 1,[render.BUFFER_STENCIL_BIT] = 0})
-    
-    -- clear screen buffers
-    --
-    -- turn on depth_mask before `render.clear()` to clear it as well
+    render.set_viewport(0, 0, render.get_render_target_width(self.rt_main, render.BUFFER_COLOR_BIT), render.get_render_target_height(self.rt_main, render.BUFFER_COLOR_BIT))
+
+    -- 只清空一次渲染目标（修复重复清空问题）
     render.set_depth_mask(true)
     render.set_stencil_mask(0xff)
-    render.clear(state.clear_buffers)
+    render.clear({
+        [render.BUFFER_COLOR_BIT] = state.clear_buffers[graphics.BUFFER_TYPE_COLOR0_BIT],
+        [render.BUFFER_DEPTH_BIT] = state.clear_buffers[graphics.BUFFER_TYPE_DEPTH_BIT],
+        [render.BUFFER_STENCIL_BIT] = state.clear_buffers[graphics.BUFFER_TYPE_STENCIL_BIT]
+    })
 
-    -- setup camera view and projection
-    --
+    -- 设置相机和视口
     local draw_options_world = set_camera_world(state)
     render.set_viewport(0, 0, state.window_width, state.window_height)
 
-    -- set states used for all the world predicates
+    -- 渲染3D模型
     render.set_blend_func(graphics.BLEND_FACTOR_SRC_ALPHA, graphics.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA)
     render.enable_state(graphics.STATE_DEPTH_TEST)
-
-    -- render `model` predicate for default 3D material
-    --
     render.enable_state(graphics.STATE_CULL_FACE)
     render.draw(predicates.model, draw_options_world)
     render.set_depth_mask(false)
     render.disable_state(graphics.STATE_CULL_FACE)
 
-    -- 绘制发光模型 (激光、核心点)
-    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE) -- 开启叠加模式 (Additive)
-    render.draw(self.glow_pred) -- 假设你在 init 中定义了 glow_pred
-    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE_MINUS_SRC_ALPHA) -- 恢复默认
+    -- 绘制发光物体（叠加混合）
+    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE)
+    render.draw(self.glow_pred)
+    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE_MINUS_SRC_ALPHA)
 
-    -- render the other components: sprites, tilemaps, particles etc
-    --
+    -- 渲染2D元素（瓦片、粒子）
     render.enable_state(graphics.STATE_BLEND)
     render.draw(predicates.tile, draw_options_world)
     render.draw(predicates.particle, draw_options_world)
     render.disable_state(graphics.STATE_DEPTH_TEST)
 
+    -- 绘制3D调试信息
     render.draw_debug3d()
 
+    -- 重置相机
     reset_camera_world(state)
-
-    -- render GUI
-    --
-    local camera_gui = state.cameras.camera_gui
-    render.set_view(camera_gui.view)
-    render.set_projection(camera_gui.proj)
-
-    render.enable_state(graphics.STATE_STENCIL_TEST)
-    render.draw(predicates.gui, camera_gui.options)
-    render.draw(predicates.debug_text, camera_gui.options)
-    render.disable_state(graphics.STATE_STENCIL_TEST)
-    render.disable_state(graphics.STATE_BLEND)
-
     render.disable_render_target(self.rt_main)
 
-    -- ==========================================
-    -- Bloom Phase 1: Downsample (降采样提取)
-    -- ==========================================
+    -- ========================
+    -- 2. Bloom效果：降采样
+    -- ========================
     render.enable_material("bloom_down")
-
     for i = 1, 4 do
         render.enable_render_target(self.bloom_rts[i])
 
-        -- 第一个 Pass 从主场景取图，后续从上一级的小图取图
+        -- 绑定输入纹理
         if i == 1 then
             render.enable_texture(0, self.rt_main, render.BUFFER_COLOR_BIT)
         else
             render.enable_texture(0, self.bloom_rts[i-1], render.BUFFER_COLOR_BIT)
         end
 
-        -- 设置当前 FBO 的分辨率， z=1.0 表示亮度大于1.0才发光(阈值)
+        -- 设置常量（分辨率+亮度阈值）
         self.constants.resolution = vmath.vector4(self.bloom_sizes[i].w, self.bloom_sizes[i].h, 1.0, 0)
-
         render.set_viewport(0, 0, self.bloom_sizes[i].w, self.bloom_sizes[i].h)
         render.draw(self.quad_pred, {constants = self.constants})
 
+        -- 清理状态
         render.disable_texture(0)
         render.disable_render_target(self.bloom_rts[i])
     end
+    render.disable_material() -- 禁用材质，避免影响后续渲染
 
-    -- ==========================================
-    -- Bloom Phase 2: Upsample (Kawase 升采样魔法)
-    -- ==========================================
+    -- ========================
+    -- 3. Bloom效果：升采样（Kawase模糊）
+    -- ========================
     render.enable_material("bloom_up")
-
-    -- 从最小的 1/16 图 (index 4) 开始往回放大到 1/2 图 (index 1)
     for i = 3, 1, -1 do
         render.enable_render_target(self.bloom_rts[i])
         render.enable_texture(0, self.bloom_rts[i+1], render.BUFFER_COLOR_BIT)
 
-        -- 传入当前渲染目标的分辨率
+        -- 设置常量（分辨率）
         self.constants.resolution = vmath.vector4(self.bloom_sizes[i].w, self.bloom_sizes[i].h, 0, 0)
-
         render.set_viewport(0, 0, self.bloom_sizes[i].w, self.bloom_sizes[i].h)
         render.draw(self.quad_pred, {constants = self.constants})
 
+        -- 清理状态
         render.disable_texture(0)
         render.disable_render_target(self.bloom_rts[i])
     end
+    render.disable_material()
 
-    -- ==========================================
-    -- Bloom Phase 3: Composite (最终混合到屏幕)
-    -- ==========================================
+    -- ========================
+    -- 4. Bloom效果：混合到屏幕
+    -- ========================
     render.set_viewport(0, 0, render.get_window_width(), render.get_window_height())
     render.enable_material("bloom_composite")
 
-    -- 绑定纹理 0 为原图，纹理 1 为模糊好的图 (即 self.bloom_rts[1])
+    -- 绑定原图和模糊图
     render.enable_texture(0, self.rt_main, render.BUFFER_COLOR_BIT)
     render.enable_texture(1, self.bloom_rts[1], render.BUFFER_COLOR_BIT)
 
-    -- Bloom 强度调节 (把 1.5 改大光晕就越明显)
+    -- 设置Bloom强度
     self.constants.bloom_intensity = vmath.vector4(1.5, 0, 0, 0)
-
     render.draw(self.quad_pred, {constants = self.constants})
 
+    -- 清理纹理和材质
     render.disable_texture(0)
     render.disable_texture(1)
+    render.disable_material()
+
+    -- ========================
+    -- 5. 渲染GUI
+    -- ========================
+    local camera_gui = state.cameras.camera_gui
+    render.set_view(camera_gui.view)
+    render.set_projection(camera_gui.proj)
+
+    render.enable_state(graphics.STATE_STENCIL_TEST)
+    render.enable_state(graphics.STATE_BLEND)
+    render.draw(predicates.gui, camera_gui.options)
+    render.draw(predicates.debug_text, camera_gui.options)
+    render.disable_state(graphics.STATE_STENCIL_TEST)
+    render.disable_state(graphics.STATE_BLEND)
 end
 
+
+
+-- 消息处理
 function on_message(self, message_id, message)
     local state = self.state
     local camera = state.main_camera
@@ -360,6 +431,7 @@ function on_message(self, message_id, message)
         update_clear_color(state, message.color)
     elseif message_id == MSG_WINDOW_RESIZED then
         update_state(state)
+        update_render_targets(self) -- 窗口缩放时更新渲染目标
     elseif message_id == MSG_SET_VIEW_PROJ then
         camera.view = message.view
         self.camera_projection = message.projection or vmath.matrix4()
