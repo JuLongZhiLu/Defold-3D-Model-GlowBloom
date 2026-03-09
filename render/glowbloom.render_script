@@ -170,9 +170,24 @@ local function reset_camera_world(state)
 end
 
 function init(self)
-    self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text")
+    self.predicates = create_predicates("tile", "gui", "particle", "model","bloom_post", "debug_text")
 
     self.glow_pred = render.predicate({"glow_pass"}) 
+
+    local w = render.get_window_width()
+    local h = render.get_window_height()
+
+    -- 画布 A: 存储原始场景
+    self.rt_base = render.render_target("base", {
+        [render.BUFFER_COLOR_BIT] = { format = render.FORMAT_RGBA, width = w, height = h },
+        [render.BUFFER_DEPTH_BIT] = { format = render.FORMAT_DEPTH, width = w, height = h }
+    })
+
+    -- 画布 B: 存储提取出的亮部 (可以小一点，提高性能并自带模糊)
+    self.rt_bloom = render.render_target("bloom", {
+        -- [render.BUFFER_COLOR_BIT] = { format = render.FORMAT_RGBA, width = w/4, height = h/4 }
+        [render.BUFFER_COLOR_BIT] = { format = render.FORMAT_RGBA, width = w, height = h }
+    })
     -- default is stretch projection. copy from builtins and change for different projection
     -- or send a message to the render script to change projection:
     -- msg.post("@render:", "use_stretch_projection", { near = -1, far = 1 })
@@ -208,6 +223,12 @@ function update(self)
     render.set_stencil_mask(0xff)
     render.clear(state.clear_buffers)
 
+    -- 第一步：将所有 3D 场景渲染到 rt_base
+    render.set_render_target(self.rt_base) -- 拿出名为 rt_base的空画布
+    render.set_depth_mask(true)            -- 准备好橡皮擦
+    render.clear(state.clear_buffers)      -- 把画布彻底擦干净
+    -- 接下来可以把玩家、背景、模型等物体全部画在这个rt_base画布上
+
     -- setup camera view and projection
     --
     local draw_options_world = set_camera_world(state)
@@ -239,6 +260,35 @@ function update(self)
     render.draw_debug3d()
 
     reset_camera_world(state)
+
+    -- 第二步：提取亮部到 rt_bloom
+    render.set_render_target(self.rt_bloom)
+    render.clear({[render.BUFFER_COLOR_BIT] = vmath.vector4(0,0,0,1)})
+    -- render.set_viewport(0, 0, state.window_width/4, state.window_height/4)
+    render.set_viewport(0, 0, state.window_width, state.window_height)
+
+    -- 使用 extract 材质绘制一个全屏矩形
+
+    render.enable_texture(0, self.rt_base, render.BUFFER_COLOR_BIT)
+    render.draw(predicates.bloom_post) -- 这里假设你有一个全屏矩形的 predicate
+    render.disable_texture(0)
+
+
+    -- 第三步：模糊处理 (可选，为简单起见先略过复杂双程模糊)
+
+    -- 第四步：最后合并到屏幕
+    render.set_render_target(render.RENDER_TARGET_DEFAULT)
+    render.set_viewport(0, 0, state.window_width, state.window_height)
+
+    -- 这里关键：向合并 Shader 传入两张纹理
+    render.enable_texture(0, self.rt_base, render.BUFFER_COLOR_BIT)  -- 单元 0: 原图
+    render.enable_texture(1, self.rt_bloom, render.BUFFER_COLOR_BIT) -- 单元 1: 光晕图
+
+    -- 绘制最终合并效果
+    render.draw(predicates.bloom_post) 
+    
+    render.disable_texture(0)
+    render.disable_texture(1)
 
     -- render GUI
     --

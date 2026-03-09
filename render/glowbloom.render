@@ -1,1 +1,13 @@
 script: "/render/glowbloom.render_script"
+render_resources {
+  name: "bloom_extract"
+  path: "/materials/extract.material"
+}
+render_resources {
+  name: "bloom_blur"
+  path: "/materials/blur.material"
+}
+render_resources {
+  name: "bloom_combine"
+  path: "/materials/combine.material"
+}
