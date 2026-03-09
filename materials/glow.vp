@@ -1,7 +1,6 @@
 attribute highp vec4 position;
 attribute mediump vec2 texcoord0;
 
-uniform mediump mat4 mtx_view;
 uniform mediump mat4 mtx_proj;
 uniform mediump mat4 mtx_worldview;
 

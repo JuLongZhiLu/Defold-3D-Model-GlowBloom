@@ -1,7 +1,58 @@
 name: "main"
 scale_along_z: 1
 embedded_instances {
-  id: "main"
+  id: "camera"
+  data: "embedded_components {\n"
+  "  id: \"camera\"\n"
+  "  type: \"camera\"\n"
+  "  data: \"aspect_ratio: 1.0\\n"
+  "fov: 0.7854\\n"
+  "near_z: 0.1\\n"
+  "far_z: 1000.0\\n"
+  "auto_aspect_ratio: 1\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    z: 8.0
+  }
+}
+embedded_instances {
+  id: "cubes"
+  children: "brown_cube"
+  children: "glow_brown_cube"
+  children: "glow_green_cube"
+  children: "green_cube"
+  data: ""
+  position {
+    x: -1.0
+  }
+}
+embedded_instances {
+  id: "brown_cube"
+  data: "embedded_components {\n"
+  "  id: \"model\"\n"
+  "  type: \"model\"\n"
+  "  data: \"mesh: \\\"/builtins/assets/gltf/cube.gltf\\\"\\n"
+  "name: \\\"{{NAME}}\\\"\\n"
+  "materials {\\n"
+  "  name: \\\"default\\\"\\n"
+  "  material: \\\"/builtins/materials/model_instanced.material\\\"\\n"
+  "  textures {\\n"
+  "    sampler: \\\"tex0\\\"\\n"
+  "    texture: \\\"/assets/images/brown.png\\\"\\n"
+  "  }\\n"
+  "}\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    x: -3.0
+    y: -2.0
+  }
+}
+embedded_instances {
+  id: "glow_brown_cube"
   data: "embedded_components {\n"
   "  id: \"model\"\n"
   "  type: \"model\"\n"
@@ -23,24 +74,30 @@ embedded_instances {
   }
 }
 embedded_instances {
-  id: "camera"
+  id: "glow_green_cube"
   data: "embedded_components {\n"
-  "  id: \"camera\"\n"
-  "  type: \"camera\"\n"
-  "  data: \"aspect_ratio: 1.0\\n"
-  "fov: 0.7854\\n"
-  "near_z: 0.1\\n"
-  "far_z: 1000.0\\n"
-  "auto_aspect_ratio: 1\\n"
+  "  id: \"model\"\n"
+  "  type: \"model\"\n"
+  "  data: \"mesh: \\\"/builtins/assets/gltf/cube.gltf\\\"\\n"
+  "name: \\\"{{NAME}}\\\"\\n"
+  "materials {\\n"
+  "  name: \\\"default\\\"\\n"
+  "  material: \\\"/materials/glow.material\\\"\\n"
+  "  textures {\\n"
+  "    sampler: \\\"tex0\\\"\\n"
+  "    texture: \\\"/assets/images/green.png\\\"\\n"
+  "  }\\n"
+  "}\\n"
   "\"\n"
   "}\n"
   ""
   position {
-    z: 8.0
+    x: 2.0
+    y: -2.0
   }
 }
 embedded_instances {
-  id: "main1"
+  id: "green_cube"
   data: "embedded_components {\n"
   "  id: \"model\"\n"
   "  type: \"model\"\n"
@@ -51,14 +108,14 @@ embedded_instances {
   "  material: \\\"/builtins/materials/model_instanced.material\\\"\\n"
   "  textures {\\n"
   "    sampler: \\\"tex0\\\"\\n"
-  "    texture: \\\"/assets/images/brown.png\\\"\\n"
+  "    texture: \\\"/assets/images/green.png\\\"\\n"
   "  }\\n"
   "}\\n"
   "\"\n"
   "}\n"
   ""
   position {
-    x: -3.0
+    x: 5.0
     y: -2.0
   }
 }
