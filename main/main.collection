@@ -145,7 +145,7 @@ embedded_instances {
   "name: \\\"{{NAME}}\\\"\\n"
   "materials {\\n"
   "  name: \\\"default\\\"\\n"
-  "  material: \\\"/materials/blur.material\\\"\\n"
+  "  material: \\\"/materials/bloom.material\\\"\\n"
   "}\\n"
   "create_go_bones: false\\n"
   "\"\n"
