@@ -2,6 +2,9 @@
 
 
 <img width="1202" height="839" alt="image" src="https://github.com/user-attachments/assets/f2d01335-d753-43ff-ba52-20556b38f7ef" />
+added a Starfield Effect example.
+<img width="1841" height="1080" alt="image" src="https://github.com/user-attachments/assets/f3573f80-0d31-470c-8588-ae0155ed37bc" />
+
 
 # How to use
 You can adjust the glow intensity in glow.material through the w of the tint.
