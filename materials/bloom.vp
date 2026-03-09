@@ -1,0 +1,11 @@
+attribute mediump vec4 position;
+attribute mediump vec2 texcoord0;
+varying mediump vec2 var_texcoord0;
+
+void main()
+{
+	// 因为我们在 render script 里传入了空矩阵 (matrix4)，这里不需要乘投影矩阵
+	// 我们假设输入的模型就是一个从 -1 到 1 的面片
+	gl_Position = position;
+	var_texcoord0 = texcoord0;
+}

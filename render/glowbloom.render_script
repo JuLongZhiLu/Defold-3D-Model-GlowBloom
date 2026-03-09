@@ -173,6 +173,8 @@ function init(self)
     self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text")
 
     self.glow_pred = render.predicate({"glow_pass"}) 
+    self.post_process_pred = render.predicate({"post_process"}) -- 新增：用于后处理全屏Quad
+    
     -- default is stretch projection. copy from builtins and change for different projection
     -- or send a message to the render script to change projection:
     -- msg.post("@render:", "use_stretch_projection", { near = -1, far = 1 })
@@ -181,6 +183,22 @@ function init(self)
 
     local state = create_state()
     self.state = state
+
+    -- [新增] 创建一个 Render Target，用来单独接收发光的模型
+    local rt_params = {
+        format = render.FORMAT_RGBA,
+        width = render.get_window_width(),
+        height = render.get_window_height(),
+        min_filter = render.FILTER_LINEAR,
+        mag_filter = render.FILTER_LINEAR,
+        u_wrap = render.WRAP_CLAMP_TO_EDGE,
+        v_wrap = render.WRAP_CLAMP_TO_EDGE
+    }
+    self.glow_rt = render.render_target({
+        [render.BUFFER_COLOR_BIT] = rt_params,
+        [render.BUFFER_DEPTH_BIT] = { format = render.FORMAT_DEPTH, width = render.get_window_width(), height = render.get_window_height() }
+    })
+    
 
     local camera_world = create_camera(state, "camera_world", true)
     init_camera(camera_world, get_stretch_projection)
@@ -201,6 +219,33 @@ function update(self)
     end
 
     local predicates = self.predicates
+
+    -- ==========================================
+    -- 1. 光晕通道 (Glow Pass)：画到 Render Target
+    -- ==========================================
+    render.enable_render_target(self.glow_rt)
+    -- 清屏为全黑透明，因为我们只需要发光物体
+    render.clear({
+        [render.BUFFER_COLOR_BIT] = vmath.vector4(0, 0, 0, 0), 
+        [render.BUFFER_DEPTH_BIT] = 1
+    })
+
+    local draw_options_world = set_camera_world(state)
+    render.set_viewport(0, 0, state.window_width, state.window_height)
+
+    render.enable_state(render.STATE_DEPTH_TEST)
+    render.enable_state(render.STATE_CULL_FACE)
+
+    -- 把发光模型画到光晕贴图上
+    render.draw(self.glow_pred, draw_options_world)
+
+    render.disable_state(render.STATE_CULL_FACE)
+    render.disable_render_target(self.glow_rt)
+
+    -- ==========================================
+    -- 2. 主场景通道 (Main Pass)：画到屏幕
+    -- ==========================================
+    
     -- clear screen buffers
     --
     -- turn on depth_mask before `render.clear()` to clear it as well
@@ -225,9 +270,9 @@ function update(self)
     render.disable_state(graphics.STATE_CULL_FACE)
 
     -- 绘制发光模型 (激光、核心点)
-    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE) -- 开启叠加模式 (Additive)
-    render.draw(self.glow_pred) -- 假设你在 init 中定义了 glow_pred
-    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE_MINUS_SRC_ALPHA) -- 恢复默认
+    -- render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE) -- 开启叠加模式 (Additive)
+    -- render.draw(self.glow_pred) -- 假设你在 init 中定义了 glow_pred
+    -- render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE_MINUS_SRC_ALPHA) -- 恢复默认
 
     -- render the other components: sprites, tilemaps, particles etc
     --
@@ -239,6 +284,29 @@ function update(self)
     render.draw_debug3d()
 
     reset_camera_world(state)
+
+    -- ==========================================
+    -- 3. 光晕合成通道 (Composite Pass)
+    -- ==========================================
+    -- 重置矩阵，为了让画出来的 Quad 正好铺满全屏
+    render.set_view(vmath.matrix4())
+    render.set_projection(vmath.matrix4())
+
+    -- 使用 Additive (叠加) 模式把模糊后的光晕贴上去
+    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE)
+
+    -- 把刚才画的 Render Target 传给 Shader
+    render.enable_texture(0, self.glow_rt, render.BUFFER_COLOR_BIT)
+
+    local constants = render.constant_buffer()
+    -- 将屏幕分辨率传给 shader，用于计算模糊半径
+    constants.resolution = vmath.vector4(state.window_width, state.window_height, 0, 0)
+
+    -- 画全屏泛光面板
+    render.draw(self.post_process_pred, { constants = constants })
+
+    render.disable_texture(0)
+    render.set_blend_func(render.BLEND_SRC_ALPHA, render.BLEND_ONE_MINUS_SRC_ALPHA)
 
     -- render GUI
     --
