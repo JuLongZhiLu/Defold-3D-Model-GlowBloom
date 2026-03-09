@@ -136,3 +136,18 @@ embedded_instances {
     z: -14.0
   }
 }
+embedded_instances {
+  id: "post"
+  data: "embedded_components {\n"
+  "  id: \"model\"\n"
+  "  type: \"model\"\n"
+  "  data: \"mesh: \\\"/builtins/assets/gltf/quad.gltf\\\"\\n"
+  "name: \\\"{{NAME}}\\\"\\n"
+  "materials {\\n"
+  "  name: \\\"default\\\"\\n"
+  "  material: \\\"/main/materials/quad.material\\\"\\n"
+  "}\\n"
+  "\"\n"
+  "}\n"
+  ""
+}

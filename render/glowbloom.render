@@ -1,1 +1,13 @@
 script: "/render/glowbloom.render_script"
+render_resources {
+  name: "bloom_down"
+  path: "/main/materials/bloom_down.material"
+}
+render_resources {
+  name: "bloom_up"
+  path: "/main/materials/bloom_up.material"
+}
+render_resources {
+  name: "bloom_composite"
+  path: "/main/materials/bloom_composite.material"
+}

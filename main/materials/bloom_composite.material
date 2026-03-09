@@ -1,0 +1,30 @@
+name: "bloom_down"
+tags: "bloom_composite"
+vertex_program: "/main/materials/quad.vp"
+fragment_program: "/main/materials/bloom_composite.fp"
+vertex_constants {
+  name: "view_proj"
+  type: CONSTANT_TYPE_VIEWPROJ
+}
+fragment_constants {
+  name: "bloom_intensity"
+  type: CONSTANT_TYPE_USER
+  value {
+  }
+}
+samplers {
+  name: "tex_main"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_LINEAR
+  filter_mag: FILTER_MODE_MAG_LINEAR
+  max_anisotropy: 0.0
+}
+samplers {
+  name: "tex_bloom"
+  wrap_u: WRAP_MODE_CLAMP_TO_EDGE
+  wrap_v: WRAP_MODE_CLAMP_TO_EDGE
+  filter_min: FILTER_MODE_MIN_LINEAR
+  filter_mag: FILTER_MODE_MAG_LINEAR
+  max_anisotropy: 0.0
+}

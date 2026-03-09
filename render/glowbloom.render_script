@@ -190,6 +190,35 @@ function init(self)
     -- It will take precedence over any other camera, and not change from messages
     local camera_component = create_camera(state, "camera_component")
     update_state(state)
+
+    self.quad_pred = render.predicate({"fullscreen_quad"}) -- 你的全屏渲染实体Tag
+
+    local w = render.get_window_width()
+    local h = render.get_window_height()
+
+    local rt_params = { format = render.FORMAT_RGBA, width = w, height = h, 
+    min_filter = render.FILTER_LINEAR, mag_filter = render.FILTER_LINEAR, 
+    u_wrap = render.WRAP_CLAMP_TO_EDGE, v_wrap = render.WRAP_CLAMP_TO_EDGE }
+
+    -- 主场景 RT
+    self.rt_main = render.render_target("rt_main", { [render.BUFFER_COLOR_BIT] = rt_params })
+
+    -- Bloom 降采样 RT 链表 (1/2, 1/4, 1/8, 1/16 分辨率)
+    self.bloom_rts = {}
+    self.bloom_sizes = {}
+    local div = 2
+    for i = 1, 4 do
+        local bw = math.floor(w / div)
+        local bh = math.floor(h / div)
+        rt_params.width = bw
+        rt_params.height = bh
+        self.bloom_rts[i] = render.render_target("rt_bloom_"..i, { [render.BUFFER_COLOR_BIT] = rt_params })
+        self.bloom_sizes[i] = { w = bw, h = bh }
+        div = div * 2
+    end
+
+    -- 常量 Buffer 用于传参
+    self.constants = render.constant_buffer()
 end
 
 function update(self)
@@ -201,6 +230,11 @@ function update(self)
     end
 
     local predicates = self.predicates
+
+    -- 1. 渲染主场景到 self.rt_main
+    render.enable_render_target(self.rt_main)
+    render.clear({[render.BUFFER_COLOR_BIT] = vmath.vector4(0, 0, 0, 1), [render.BUFFER_DEPTH_BIT] = 1,[render.BUFFER_STENCIL_BIT] = 0})
+    
     -- clear screen buffers
     --
     -- turn on depth_mask before `render.clear()` to clear it as well
@@ -251,6 +285,71 @@ function update(self)
     render.draw(predicates.debug_text, camera_gui.options)
     render.disable_state(graphics.STATE_STENCIL_TEST)
     render.disable_state(graphics.STATE_BLEND)
+
+    render.disable_render_target(self.rt_main)
+
+    -- ==========================================
+    -- Bloom Phase 1: Downsample (降采样提取)
+    -- ==========================================
+    render.enable_material("bloom_down")
+
+    for i = 1, 4 do
+        render.enable_render_target(self.bloom_rts[i])
+
+        -- 第一个 Pass 从主场景取图，后续从上一级的小图取图
+        if i == 1 then
+            render.enable_texture(0, self.rt_main, render.BUFFER_COLOR_BIT)
+        else
+            render.enable_texture(0, self.bloom_rts[i-1], render.BUFFER_COLOR_BIT)
+        end
+
+        -- 设置当前 FBO 的分辨率， z=1.0 表示亮度大于1.0才发光(阈值)
+        self.constants.resolution = vmath.vector4(self.bloom_sizes[i].w, self.bloom_sizes[i].h, 1.0, 0)
+
+        render.set_viewport(0, 0, self.bloom_sizes[i].w, self.bloom_sizes[i].h)
+        render.draw(self.quad_pred, {constants = self.constants})
+
+        render.disable_texture(0)
+        render.disable_render_target(self.bloom_rts[i])
+    end
+
+    -- ==========================================
+    -- Bloom Phase 2: Upsample (Kawase 升采样魔法)
+    -- ==========================================
+    render.enable_material("bloom_up")
+
+    -- 从最小的 1/16 图 (index 4) 开始往回放大到 1/2 图 (index 1)
+    for i = 3, 1, -1 do
+        render.enable_render_target(self.bloom_rts[i])
+        render.enable_texture(0, self.bloom_rts[i+1], render.BUFFER_COLOR_BIT)
+
+        -- 传入当前渲染目标的分辨率
+        self.constants.resolution = vmath.vector4(self.bloom_sizes[i].w, self.bloom_sizes[i].h, 0, 0)
+
+        render.set_viewport(0, 0, self.bloom_sizes[i].w, self.bloom_sizes[i].h)
+        render.draw(self.quad_pred, {constants = self.constants})
+
+        render.disable_texture(0)
+        render.disable_render_target(self.bloom_rts[i])
+    end
+
+    -- ==========================================
+    -- Bloom Phase 3: Composite (最终混合到屏幕)
+    -- ==========================================
+    render.set_viewport(0, 0, render.get_window_width(), render.get_window_height())
+    render.enable_material("bloom_composite")
+
+    -- 绑定纹理 0 为原图，纹理 1 为模糊好的图 (即 self.bloom_rts[1])
+    render.enable_texture(0, self.rt_main, render.BUFFER_COLOR_BIT)
+    render.enable_texture(1, self.bloom_rts[1], render.BUFFER_COLOR_BIT)
+
+    -- Bloom 强度调节 (把 1.5 改大光晕就越明显)
+    self.constants.bloom_intensity = vmath.vector4(1.5, 0, 0, 0)
+
+    render.draw(self.quad_pred, {constants = self.constants})
+
+    render.disable_texture(0)
+    render.disable_texture(1)
 end
 
 function on_message(self, message_id, message)
