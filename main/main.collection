@@ -136,3 +136,23 @@ embedded_instances {
     z: -14.0
   }
 }
+embedded_instances {
+  id: "post_proc"
+  data: "embedded_components {\n"
+  "  id: \"model\"\n"
+  "  type: \"model\"\n"
+  "  data: \"mesh: \\\"/builtins/assets/gltf/quad.gltf\\\"\\n"
+  "name: \\\"{{NAME}}\\\"\\n"
+  "materials {\\n"
+  "  name: \\\"default\\\"\\n"
+  "  material: \\\"/materials/blur.material\\\"\\n"
+  "}\\n"
+  "create_go_bones: false\\n"
+  "\"\n"
+  "}\n"
+  ""
+  scale3 {
+    x: 2.0
+    y: 2.0
+  }
+}

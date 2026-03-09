@@ -73,6 +73,31 @@ local function update_camera(camera, state)
     end
 end
 
+-- ================= 新增：创建/重建 Render Target =================
+local function create_render_target(width, height)
+    local color_params = {
+        format = render.FORMAT_RGBA,
+        width = width,
+        height = height,
+        min_filter = render.FILTER_LINEAR,
+        mag_filter = render.FILTER_LINEAR,
+        u_wrap = render.WRAP_CLAMP_TO_EDGE,
+        v_wrap = render.WRAP_CLAMP_TO_EDGE
+    }
+    local depth_params = {
+        format = render.FORMAT_DEPTH,
+        width = width,
+        height = height,
+        u_wrap = render.WRAP_CLAMP_TO_EDGE,
+        v_wrap = render.WRAP_CLAMP_TO_EDGE
+    }
+    return render.render_target({
+        [render.BUFFER_COLOR_BIT] = color_params,
+        [render.BUFFER_DEPTH_BIT] = depth_params
+    })
+end
+-- =================================================================
+
 local function update_state(state)
     state.window_width = render.get_window_width()
     state.window_height = render.get_window_height()
@@ -80,6 +105,12 @@ local function update_state(state)
     if not state.valid then
         return false
     end
+
+    -- 当窗口大小改变时，标记需要重新创建 Render Target
+    if state.window_width ~= state.prev_window_width or state.window_height ~= state.prev_window_height then
+        state.resize_render_target = true
+    end
+    
     -- Make sure state updated only once when resize window
     if state.window_width == state.prev_window_width and state.window_height == state.prev_window_height then
         return true
@@ -170,7 +201,7 @@ local function reset_camera_world(state)
 end
 
 function init(self)
-    self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text")
+    self.predicates = create_predicates("tile", "gui", "particle", "model", "debug_text","post_processing")
 
     self.glow_pred = render.predicate({"glow_pass"}) 
     -- default is stretch projection. copy from builtins and change for different projection
@@ -190,6 +221,9 @@ function init(self)
     -- It will take precedence over any other camera, and not change from messages
     local camera_component = create_camera(state, "camera_component")
     update_state(state)
+
+    -- 初始化 Render Target
+    self.render_target = create_render_target(state.window_width, state.window_height)
 end
 
 function update(self)
@@ -200,7 +234,19 @@ function update(self)
         end
     end
 
+    -- 如果窗口大小发生变化，重建 Render target 以防画面拉伸模糊
+    if state.resize_render_target then
+        render.delete_render_target(self.render_target)
+        self.render_target = create_render_target(state.window_width, state.window_height)
+        state.resize_render_target = false
+    end
+
     local predicates = self.predicates
+
+    -- ================= 1. 开启 Render Target =================
+    -- 现在开始，所有的绘制都会画到这块内存贴图里，而不是屏幕上
+    render.enable_render_target(self.render_target)
+    
     -- clear screen buffers
     --
     -- turn on depth_mask before `render.clear()` to clear it as well
@@ -239,6 +285,28 @@ function update(self)
     render.draw_debug3d()
 
     reset_camera_world(state)
+
+    -- ================= 2. 关闭 Render Target =================
+    render.disable_render_target(self.render_target)
+
+    -- ================= 3. 将 Render Target 画到屏幕上 (应用模糊 Shader) =================
+    -- 清空实际的屏幕
+    render.clear({[graphics.BUFFER_TYPE_COLOR0_BIT] = vmath.vector4(0, 0, 0, 1)})
+
+    -- 使用单位矩阵，直接全屏覆盖
+    render.set_view(vmath.matrix4())
+    render.set_projection(vmath.matrix4())
+
+    -- 将我们刚才画好游戏画面的 Render Target 作为贴图传给材质 (texture slot 0)
+    render.enable_texture(0, self.render_target, graphics.BUFFER_TYPE_COLOR0_BIT)
+
+    -- 传递屏幕分辨率给 Shader，用于计算模糊采样的偏移量
+    local constants = render.constant_buffer()
+    constants.resolution = vmath.vector4(state.window_width, state.window_height, 0, 0)
+
+    -- 绘制承载后期处理材质的模型
+    render.draw(predicates.post_processing, {constants = constants})
+    render.disable_texture(0)
 
     -- render GUI
     --
