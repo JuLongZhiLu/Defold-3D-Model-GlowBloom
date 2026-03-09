@@ -119,3 +119,20 @@ embedded_instances {
     y: -2.0
   }
 }
+embedded_instances {
+  id: "Starfield Effect"
+  data: "components {\n"
+  "  id: \"spawner\"\n"
+  "  component: \"/main/spawner.script\"\n"
+  "}\n"
+  "embedded_components {\n"
+  "  id: \"star_factory\"\n"
+  "  type: \"factory\"\n"
+  "  data: \"prototype: \\\"/prefabs/star_streak.go\\\"\\n"
+  "\"\n"
+  "}\n"
+  ""
+  position {
+    z: -14.0
+  }
+}

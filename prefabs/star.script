@@ -1,0 +1,21 @@
+-- star.script
+go.property("speed", 150) -- 飞行速度
+
+function init(self)
+	-- 随机一个旋转角度，让光束看起来是乱序排列的
+	go.set_rotation(vmath.quat_rotation_z(math.random() * math.pi * 2))
+end
+
+function update(self, dt)
+	local p = go.get_position()
+
+	-- 让光束沿 Z 轴飞向镜头（假设镜头看向 -Z 方向）
+	p.z = p.z + self.speed * dt
+
+	-- 如果光束飞到了玩家身后（比如坐标 > 10），就销毁它
+	if p.z > 20 then
+		go.delete()
+	end
+
+	go.set_position(p)
+end

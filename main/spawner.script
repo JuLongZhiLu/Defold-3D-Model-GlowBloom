@@ -1,0 +1,19 @@
+-- spawner.script
+local SPAWN_RATE = 0.01 -- 生成间隔（秒），越小越密集
+local timer = 0
+
+function update(self, dt)
+	timer = timer + dt
+	if timer >= SPAWN_RATE then
+		timer = 0
+
+		-- 在远处的一个随机圆圈范围内生成
+		-- 比如 Z 轴在 -100 处（远处）
+		local angle = math.random() * math.pi * 2
+		local dist = math.random(10, 50) -- 离中心的距离
+		local pos = vmath.vector3(math.cos(angle) * dist, math.sin(angle) * dist, -100)
+
+		-- 通过工厂创建光束
+		factory.create("#star_factory", pos)
+	end
+end
