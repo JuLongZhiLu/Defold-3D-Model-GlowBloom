@@ -2,6 +2,9 @@
 <img width="1842" height="1080" alt="image" src="https://github.com/user-attachments/assets/8da77799-5cba-4de8-a867-cce4bc8b1c24" />
 
 
+# Play in Browser
+https://julongzhilu.itch.io/defold-3d-glowbloom-demo
+
 
 
 
