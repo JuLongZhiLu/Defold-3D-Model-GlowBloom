@@ -30,3 +30,9 @@ bundle_identifier = com.defold.example.basic3d
 [html5]
 scale_mode = stretch
 
+[model]
+max_count = 512
+
+[sprite]
+max_count = 512
+

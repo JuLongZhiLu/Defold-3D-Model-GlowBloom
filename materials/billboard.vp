@@ -1,0 +1,29 @@
+// billboard.vp
+uniform mediump mat4 mtx_view;
+uniform mediump mat4 mtx_proj;
+
+attribute highp vec4 position;        // Defold 传入的顶点世界坐标
+attribute mediump vec2 texcoord0;
+attribute highp vec4 center_world;    // 我们自定义的属性：Sprite所在对象的世界中心点
+
+varying mediump vec2 var_texcoord0;
+
+void main()
+{
+	// 1. 获取当前顶点相对于中心的局部偏移量 (Local Offset)
+	// 即使 GO 被缩放，这个 offset 也已经包含了缩放信息
+	highp vec3 local_offset = position.xyz - center_world.xyz;
+
+	// 2. 将 Sprite 的中心点转换到摄像机视图空间 (View Space)
+	highp vec4 center_view = mtx_view * vec4(center_world.xyz, 1.0);
+
+	// 3. 在视图空间加上局部偏移。
+	// 因为在 View Space 中，XY 平面就是严格平行于摄像机屏幕的，
+	// 这样直接加 XY 偏移，就抵消了世界空间的旋转，实现了完美的 Billboard！
+	highp vec4 billboard_view = center_view + vec4(local_offset.xy, 0.0, 0.0);
+
+	// 4. 转换到裁剪空间
+	gl_Position = mtx_proj * billboard_view;
+
+	var_texcoord0 = texcoord0;
+}

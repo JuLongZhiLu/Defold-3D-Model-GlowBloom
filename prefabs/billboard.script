@@ -1,0 +1,18 @@
+function init(self)
+	local alpha = 0.05
+	sprite.set_constant("#sprite", "tint", vmath.vector4(1, 1, 1, alpha))
+	-- 初始化时获取当前对象的中心坐标
+	self.pos = go.get_world_position()
+	-- 传入 Sprite 的材质属性
+	go.set("#sprite", "center_world", vmath.vector4(self.pos.x, self.pos.y, self.pos.z, 1.0))
+end
+
+function update(self, dt)
+	local new_pos = go.get_world_position()
+
+	-- 只有当 Sprite 移动时才更新 Shader 属性（节省性能）
+	if new_pos ~= self.pos then
+		self.pos = new_pos
+		go.set("#sprite", "center_world", vmath.vector4(self.pos.x, self.pos.y, self.pos.z, 1.0))
+	end
+end

@@ -132,7 +132,4 @@ embedded_instances {
   "\"\n"
   "}\n"
   ""
-  position {
-    z: -14.0
-  }
 }

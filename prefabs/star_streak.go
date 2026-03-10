@@ -2,6 +2,10 @@ components {
   id: "star"
   component: "/prefabs/star.script"
 }
+components {
+  id: "billboard"
+  component: "/prefabs/billboard.script"
+}
 embedded_components {
   id: "model"
   type: "model"
@@ -16,4 +20,20 @@ embedded_components {
   "  }\n"
   "}\n"
   ""
+}
+embedded_components {
+  id: "sprite"
+  type: "sprite"
+  data: "default_animation: \"anim\"\n"
+  "material: \"/materials/billboard.material\"\n"
+  "blend_mode: BLEND_MODE_ADD\n"
+  "textures {\n"
+  "  sampler: \"texture_sampler\"\n"
+  "  texture: \"/builtins/graphics/particle_blob.tilesource\"\n"
+  "}\n"
+  ""
+  scale {
+    x: 0.5
+    y: 0.5
+  }
 }

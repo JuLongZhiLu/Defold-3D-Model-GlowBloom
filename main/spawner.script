@@ -1,5 +1,5 @@
 -- spawner.script
-local SPAWN_RATE = 0.01 -- 生成间隔（秒），越小越密集
+local SPAWN_RATE = 0.02 -- 生成间隔（秒），越小越密集
 local timer = 0
 
 function update(self, dt)
@@ -10,10 +10,13 @@ function update(self, dt)
 		-- 在远处的一个随机圆圈范围内生成
 		-- 比如 Z 轴在 -100 处（远处）
 		local angle = math.random() * math.pi * 2
-		local dist = math.random(10, 50) -- 离中心的距离
-		local pos = vmath.vector3(math.cos(angle) * dist, math.sin(angle) * dist, -100)
+		local dist = math.random(10, 70) -- 离中心的距离
+		local pos = vmath.vector3(math.cos(angle) * dist, math.sin(angle) * dist, -400)
 
-		-- 通过工厂创建光束
-		factory.create("#star_factory", pos)
+		-- 1. 创建对象，获取它的 ID
+		local new_star = factory.create("#star_factory", pos)
+
+		-- 2. 设置随机缩放比例 (例如 0.5 到 1.5 倍)
+		go.set_scale(vmath.vector3(0.5,0.5,1), new_star) 
 	end
 end
