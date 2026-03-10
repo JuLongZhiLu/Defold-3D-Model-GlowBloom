@@ -15,5 +15,6 @@ Copy these lines of code of the init function and update function from glowbloom
 <img width="1200" height="846" alt="image" src="https://github.com/user-attachments/assets/bb2efd04-f09a-4db8-9def-9c4c43d139dd" />
 
 
-
+# How to implement the halo
+I tried so many way to implement the halo, but I found the best way to do it is to use sprite component.
 
